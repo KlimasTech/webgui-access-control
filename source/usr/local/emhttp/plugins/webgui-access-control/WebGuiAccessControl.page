@@ -1,0 +1,254 @@
+Menu="Utilities"
+Title="Access Control"
+Icon="lock"
+---
+<?php
+require_once '/usr/local/emhttp/plugins/webgui-access-control/include/AccessControl.php';
+if (session_status() === PHP_SESSION_NONE) { session_start(); }
+$isRealRoot = empty($_SESSION['wac_role']);
+$varIni = @parse_ini_file('/var/local/emhttp/var.ini');
+$csrfToken = is_array($varIni) ? ($varIni['csrf_token'] ?? '') : '';
+?>
+<style>
+#wac-wrap { max-width: 1000px; font-family: inherit; color: #d8dee9; }
+#wac-wrap * { box-sizing: border-box; }
+#wac-wrap .wac-card { background: #1b212c; border: 1px solid #2a323f; border-radius: 10px; padding: 20px 22px;
+  margin-bottom: 16px; box-shadow: 0 2px 8px rgba(0,0,0,.25); }
+#wac-wrap h3 { margin-top: 0; }
+#wac-wrap table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+#wac-wrap th, #wac-wrap td { text-align: left; padding: 8px 10px; border-bottom: 1px solid #2a323f; font-size: 13px; }
+#wac-wrap .pill { display:inline-block; padding:2px 8px; border-radius: 10px; font-size: 11px; font-weight:600; }
+#wac-wrap .pill.admin { background: rgba(245,166,35,.18); color:#f5a623; }
+#wac-wrap .pill.user { background: rgba(107,203,122,.15); color:#6bcb7a; }
+#wac-wrap .pill.off { background: rgba(255,128,128,.15); color:#ff8080; }
+#wac-wrap .sec-tag { display:inline-block; background:#232b38; border:1px solid #333f50; border-radius:6px;
+  padding:1px 6px; margin:1px; font-size:11px; }
+#wac-wrap .wac-form { display:grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 10px; }
+#wac-wrap .wac-field { display:flex; flex-direction:column; gap:4px; }
+#wac-wrap label { font-size: 12px; color:#8993a4; }
+#wac-wrap input[type=text], #wac-wrap input[type=password] { background:#11161e; border:1px solid #2a323f;
+  border-radius:6px; color:#d8dee9; padding:8px 10px; font-size:13px; }
+#wac-wrap .checks { display:flex; flex-wrap:wrap; gap: 8px; grid-column: 1 / -1; }
+#wac-wrap .checks label { display:flex; align-items:center; gap:5px; font-size: 13px; color:#d8dee9; }
+#wac-wrap .wac-btn { background: linear-gradient(90deg,#e22828,#ff8c2f); color:#fff; border:none; border-radius:6px;
+  padding: 8px 16px; font-size:13px; font-weight:600; cursor:pointer; }
+#wac-wrap .wac-btn.secondary { background: #2a323f; }
+#wac-wrap .wac-btn.danger { background: #a33; }
+#wac-wrap .wac-status { margin-top: 10px; font-size: 13px; }
+#wac-wrap .wac-status.ok { color:#6bcb7a; }
+#wac-wrap .wac-status.err { color:#ff8080; }
+#wac-wrap .warn-box { background: rgba(245,166,35,.1); border:1px solid rgba(245,166,35,.3); border-radius:8px;
+  padding: 12px 14px; font-size: 13px; margin-bottom: 14px; }
+</style>
+
+<div id="wac-wrap">
+  <?php if (!$isRealRoot): ?>
+    <div class="wac-card">
+      <div class="warn-box">Zarzadzanie kontami jest dostepne tylko dla konta root.</div>
+    </div>
+  <?php else: ?>
+  <div class="wac-card">
+    <h3>Konta dostepu do panelu WWW</h3>
+    <div class="warn-box">
+      Plugin dodaje dodatkowe konta logowania do WebGUI (poza root) z ograniczonym dostepem do wybranych sekcji.
+      Dziala przez modyfikacje dwoch plikow systemowych unRAID (<code>auth-request.php</code>, <code>.login.php</code>)
+      naklad anych ponownie przy kazdym starcie systemu. W razie problemow z logowaniem: polacz sie przez SSH i uruchom
+      <code>/usr/local/emhttp/plugins/webgui-access-control/scripts/emergency_revert.sh</code> - przywroci oryginalne
+      pliki unRAID natychmiast.
+    </div>
+    <table id="wac-table">
+      <thead><tr><th>Uzytkownik</th><th>Rola</th><th>Status</th><th>Sekcje</th><th></th></tr></thead>
+      <tbody id="wac-tbody"><tr><td colspan="5">Ladowanie…</td></tr></tbody>
+    </table>
+  </div>
+
+  <div class="wac-card">
+    <h3 id="wac-form-title">Dodaj konto</h3>
+    <form id="wac-form">
+      <input type="hidden" id="wac-edit-mode" value="create">
+      <div class="wac-form">
+        <div class="wac-field">
+          <label>Nazwa uzytkownika</label>
+          <input type="text" id="wac-username" autocomplete="off">
+        </div>
+        <div class="wac-field">
+          <label>Haslo (puste = bez zmian przy edycji)</label>
+          <input type="password" id="wac-password" autocomplete="new-password">
+        </div>
+        <div class="wac-field">
+          <label>Rola</label>
+          <select id="wac-role">
+            <option value="user">user (ograniczony dostep)</option>
+            <option value="admin">admin (pelny dostep)</option>
+          </select>
+        </div>
+        <div class="wac-field">
+          <label><input type="checkbox" id="wac-enabled" checked style="width:auto;margin-right:6px;">Konto aktywne</label>
+        </div>
+        <div class="checks" id="wac-sections"></div>
+      </div>
+      <div style="margin-top:14px;display:flex;gap:10px;">
+        <button type="button" class="wac-btn" id="wac-save">Zapisz konto</button>
+        <button type="button" class="wac-btn secondary" id="wac-cancel" style="display:none;">Anuluj edycje</button>
+      </div>
+      <div class="wac-status" id="wac-status"></div>
+    </form>
+  </div>
+  <?php endif; ?>
+</div>
+
+<script markdown="0">
+(function () {
+  var WAC = {
+    csrfToken: <?=json_encode($csrfToken)?>,
+    apiUrl: '/plugins/webgui-access-control/scripts/users_api.php',
+    allSections: [],
+  };
+
+  function $(id) { return document.getElementById(id); }
+  function esc(s) { return String(s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+
+  function wacFetch(params) {
+    var body = new URLSearchParams(params);
+    body.append('csrf_token', WAC.csrfToken);
+    return fetch(WAC.apiUrl, { method: 'POST', body: body }).then(function (r) {
+      return r.text().then(function (text) {
+        if (!text) { throw new Error('Pusta odpowiedz serwera (HTTP ' + r.status + ')'); }
+        try { return JSON.parse(text); }
+        catch (e) {
+          if (text.trim().charAt(0) === '<') {
+            throw new Error('Serwer zwrocil strone HTML zamiast danych - sesja mogla wygasnac. Odswiez strone.');
+          }
+          throw new Error('Nieprawidlowa odpowiedz (HTTP ' + r.status + ')');
+        }
+      });
+    });
+  }
+
+  function showStatus(ok, msg) {
+    var el = $('wac-status');
+    el.className = 'wac-status ' + (ok ? 'ok' : 'err');
+    el.textContent = msg;
+  }
+
+  function renderSectionChecks(selected) {
+    selected = selected || [];
+    var box = $('wac-sections');
+    box.innerHTML = WAC.allSections.map(function (s) {
+      var checked = selected.indexOf(s) !== -1 ? 'checked' : '';
+      return '<label><input type="checkbox" class="wac-sec-cb" value="' + esc(s) + '" ' + checked + '>' + esc(s) + '</label>';
+    }).join('');
+  }
+
+  function renderTable(users) {
+    var tbody = $('wac-tbody');
+    if (!users.length) {
+      tbody.innerHTML = '<tr><td colspan="5">Brak dodatkowych kont - tylko root.</td></tr>';
+      return;
+    }
+    tbody.innerHTML = users.map(function (u) {
+      var rolePill = '<span class="pill ' + (u.role === 'admin' ? 'admin' : 'user') + '">' + esc(u.role) + '</span>';
+      var statusPill = u.enabled ? '<span class="pill user">aktywne</span>' : '<span class="pill off">wylaczone</span>';
+      var sections = (u.sections || []).map(function (s) { return '<span class="sec-tag">' + esc(s) + '</span>'; }).join('') || '<i>brak</i>';
+      return '<tr>' +
+        '<td>' + esc(u.username) + '</td>' +
+        '<td>' + rolePill + '</td>' +
+        '<td>' + statusPill + '</td>' +
+        '<td>' + sections + '</td>' +
+        '<td>' +
+          '<a href="#" class="wac-edit-link" data-username="' + esc(u.username) + '">edytuj</a> | ' +
+          '<a href="#" class="wac-del-link" data-username="' + esc(u.username) + '" style="color:#ff8080;">usun</a>' +
+        '</td>' +
+      '</tr>';
+    }).join('');
+
+    tbody.querySelectorAll('.wac-edit-link').forEach(function (a) {
+      a.addEventListener('click', function (e) { e.preventDefault(); startEdit(a.dataset.username, users); });
+    });
+    tbody.querySelectorAll('.wac-del-link').forEach(function (a) {
+      a.addEventListener('click', function (e) {
+        e.preventDefault();
+        if (!confirm('Usunac konto "' + a.dataset.username + '"?')) return;
+        wacFetch({ action: 'delete', username: a.dataset.username })
+          .then(function (d) {
+            if (!d.ok) { showStatus(false, d.error); return; }
+            showStatus(true, 'Usunieto konto.');
+            load();
+          })
+          .catch(function (e) { showStatus(false, e.message); });
+      });
+    });
+  }
+
+  function startEdit(username, users) {
+    var u = users.find(function (x) { return x.username === username; });
+    if (!u) return;
+    $('wac-edit-mode').value = 'edit';
+    $('wac-username').value = u.username;
+    $('wac-username').disabled = true;
+    $('wac-password').value = '';
+    $('wac-role').value = u.role;
+    $('wac-enabled').checked = !!u.enabled;
+    renderSectionChecks(u.sections);
+    $('wac-form-title').textContent = 'Edycja konta: ' + u.username;
+    $('wac-cancel').style.display = '';
+    window.scrollTo({ top: $('wac-form').getBoundingClientRect().top + window.scrollY - 20, behavior: 'smooth' });
+  }
+
+  function resetForm() {
+    $('wac-edit-mode').value = 'create';
+    $('wac-username').value = '';
+    $('wac-username').disabled = false;
+    $('wac-password').value = '';
+    $('wac-role').value = 'user';
+    $('wac-enabled').checked = true;
+    renderSectionChecks([]);
+    $('wac-form-title').textContent = 'Dodaj konto';
+    $('wac-cancel').style.display = 'none';
+  }
+
+  function load() {
+    wacFetch({ action: 'list' })
+      .then(function (d) {
+        if (!d.ok) { showStatus(false, d.error); return; }
+        WAC.allSections = d.sections;
+        renderTable(d.users);
+        if ($('wac-sections').children.length === 0) { renderSectionChecks([]); }
+      })
+      .catch(function (e) { showStatus(false, e.message); });
+  }
+
+  function bindForm() {
+    $('wac-save').addEventListener('click', function () {
+      var sections = Array.from(document.querySelectorAll('.wac-sec-cb:checked')).map(function (c) { return c.value; });
+      wacFetch({
+        action: 'save',
+        username: $('wac-username').value.trim(),
+        password: $('wac-password').value,
+        role: $('wac-role').value,
+        enabled: $('wac-enabled').checked ? '1' : '',
+        sections: JSON.stringify(sections),
+      }).then(function (d) {
+        if (!d.ok) { showStatus(false, d.error); return; }
+        showStatus(true, 'Zapisano konto.');
+        resetForm();
+        load();
+      }).catch(function (e) { showStatus(false, e.message); });
+    });
+    $('wac-cancel').addEventListener('click', resetForm);
+  }
+
+  function init() {
+    if (!$('wac-form')) { return; }
+    bindForm();
+    resetForm();
+    load();
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init);
+  } else {
+    init();
+  }
+})();
+</script>

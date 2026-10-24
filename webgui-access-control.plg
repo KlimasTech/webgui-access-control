@@ -1,0 +1,85 @@
+<?xml version='1.0' standalone='yes'?>
+<!DOCTYPE PLUGIN [
+<!ENTITY name        "webgui-access-control">
+<!ENTITY author      "KlimasTech">
+<!ENTITY version     "2026.10.24">
+<!ENTITY launch      "Utilities/webgui-access-control">
+<!ENTITY pluginURL   "https://raw.githubusercontent.com/KlimasTech/webgui-access-control/main/webgui-access-control.plg">
+<!ENTITY packageURL  "https://github.com/KlimasTech/webgui-access-control/releases/download/&version;/webgui-access-control-&version;.txz">
+<!ENTITY packageMD5  "PLACEHOLDER_MD5">
+<!ENTITY pluginLOC   "/boot/config/plugins/&name;">
+<!ENTITY emhttpLOC   "/usr/local/emhttp/plugins/&name;">
+]>
+
+<PLUGIN name="&name;" author="&author;" version="&version;" launch="&launch;" pluginURL="&pluginURL;" icon="lock">
+
+<CHANGES>
+### &version;
+- Pierwsze wydanie: dodatkowe konta logowania do WebGUI (poza root) z rolami admin/user i ograniczeniem dostepu
+  do wybranych sekcji panelu (Dashboard, Shares, Docker, VMs, Settings, itd.)
+- UWAGA BEZPIECZENSTWA: plugin dziala przez patchowanie dwoch plikow systemowych unRAID (auth-request.php,
+  .login.php) naladanych ponownie przy kazdym starcie systemu. W razie problemow z logowaniem uruchom przez SSH:
+  /usr/local/emhttp/plugins/webgui-access-control/scripts/emergency_revert.sh
+</CHANGES>
+
+<FILE Name="&pluginLOC;/&name;-&version;.txz">
+<URL>&packageURL;</URL>
+<MD5>&packageMD5;</MD5>
+</FILE>
+
+<FILE Run="/bin/bash">
+<INLINE>
+<![CDATA[
+set -e
+echo "Instaluje &name; &version;..."
+
+# Usun stara wersje jesli istnieje
+removepkg &name; 2>/dev/null || true
+
+# Zainstaluj nowa paczke
+upgradepkg --install-new &pluginLOC;/&name;-&version;.txz
+
+# Nalozenie patchy na pliki systemowe unRAID (idempotentne - bezpieczne do wielokrotnego uruchomienia)
+php &emhttpLOC;/scripts/apply_patches.php
+
+# Zarejestruj automatyczne nakladanie patcha przy kazdym starcie systemu
+# (pliki /usr/local/emhttp sa budowane od zera z /boot przy kazdym boocie unRAID,
+#  wiec patch trzeba nakladac ponownie po kazdym restarcie)
+GO_FILE="/boot/config/go"
+MARKER="webgui-access-control/scripts/apply_patches.php"
+if ! grep -q "$MARKER" "$GO_FILE" 2>/dev/null; then
+    # Wstaw TUZ PRZED uruchomieniem emhttp (ostatnia linia go), zeby patch byl
+    # nalozony zanim WebGUI zacznie obslugiwac zadania
+    sed -i "/emhttp\$/i php &emhttpLOC;/scripts/apply_patches.php 2>/var/log/webgui-access-control-boot.log || true" "$GO_FILE"
+    echo "Zarejestrowano automatyczne nakladanie patcha przy starcie systemu."
+fi
+
+chmod +x &emhttpLOC;/scripts/emergency_revert.sh
+
+echo ""
+echo "----------------------------------------------------------------------"
+echo "webgui-access-control zainstalowany."
+echo "Zarzadzanie kontami: Ustawienia -> Access Control"
+echo "W razie problemow z logowaniem, uruchom przez SSH:"
+echo "  &emhttpLOC;/scripts/emergency_revert.sh"
+echo "----------------------------------------------------------------------"
+]]>
+</INLINE>
+</FILE>
+
+<FILE Run="/bin/bash" Method="remove">
+<INLINE>
+<![CDATA[
+# Przywroc oryginalne pliki systemowe PRZED usunieciem pluginu
+if [ -f &emhttpLOC;/scripts/emergency_revert.sh ]; then
+    bash &emhttpLOC;/scripts/emergency_revert.sh || true
+fi
+# Usun wpis z /boot/config/go
+sed -i '/webgui-access-control\/scripts\/apply_patches.php/d' /boot/config/go 2>/dev/null || true
+removepkg &name; 2>/dev/null || true
+echo "webgui-access-control odinstalowany, oryginalne pliki unRAID przywrocone."
+]]>
+</INLINE>
+</FILE>
+
+</PLUGIN>
