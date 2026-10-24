@@ -46,8 +46,14 @@ plugin się zepsuje, prosty restart serwera przywraca oryginalne pliki
 - Zarządzanie kontami: **Ustawienia → Access Control** (tylko dla `root`)
 - Rola **admin** = pełny dostęp (jak root)
 - Rola **user** = dostęp tylko do zaznaczonych sekcji WebGUI
-- Hasła przechowywane jako bcrypt hash (`password_hash`) w
-  `/boot/config/plugins/webgui-access-control/users.json`
+- Dwa typy kont:
+  - **Istniejący użytkownik unRAID** — wybierany z listy kont utworzonych w natywnym panelu
+    **Użytkownicy** (Users). Hasło weryfikowane bezpośrednio przez `/etc/shadow`, plugin go
+    nigdzie nie duplikuje.
+  - **Konto niestandardowe** — login+hasło zarządzane w całości przez ten plugin (bcrypt hash w
+    `/boot/config/plugins/webgui-access-control/users.json`).
+- Zakładki menu, do których użytkownik nie ma dostępu, są **ukrywane** w interfejsie (nie tylko
+  blokowane 403 po kliknięciu)
 - Logowanie prób/zdarzeń w `/var/log/webgui-access-control.log`
 
 ## Instalacja
