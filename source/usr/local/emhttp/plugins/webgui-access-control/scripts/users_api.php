@@ -46,12 +46,21 @@ switch ($action) {
             unset($u['hash']);
             return $u;
         }, $users);
-        echo json_encode(['ok' => true, 'users' => array_values($safe), 'sections' => array_keys(wac_sections())]);
+        $configuredUsernames = array_column($users, 'username');
+        $nativeAll = wac_native_users();
+        $nativeAvailable = array_values(array_diff($nativeAll, $configuredUsernames));
+        echo json_encode([
+            'ok' => true,
+            'users' => array_values($safe),
+            'sections' => array_keys(wac_sections()),
+            'nativeUsers' => $nativeAvailable,
+        ]);
         break;
 
     case 'save':
         $username = trim((string)($_POST['username'] ?? ''));
         $password = (string)($_POST['password'] ?? '');
+        $type     = ($_POST['type'] ?? 'custom') === 'native' ? 'native' : 'custom';
         $role     = ($_POST['role'] ?? 'user') === 'admin' ? 'admin' : 'user';
         $sections = isset($_POST['sections']) ? (array)json_decode((string)$_POST['sections'], true) : [];
         $enabled  = !empty($_POST['enabled']);
@@ -64,6 +73,10 @@ switch ($action) {
             echo json_encode(['ok' => false, 'error' => '"root" jest zarezerwowane dla konta systemowego.']);
             exit;
         }
+        if ($type === 'native' && !in_array($username, wac_native_users(), true)) {
+            echo json_encode(['ok' => false, 'error' => 'Nie znaleziono takiego konta w panelu Uzytkownicy unRAID.']);
+            exit;
+        }
         $validSections = array_keys(wac_sections());
         $sections = array_values(array_intersect($sections, $validSections));
 
@@ -71,29 +84,36 @@ switch ($action) {
         foreach ($users as &$u) {
             if (($u['username'] ?? '') === $username) {
                 $found = true;
+                $u['type'] = $type;
                 $u['role'] = $role;
                 $u['sections'] = $sections;
                 $u['enabled'] = $enabled;
-                if ($password !== '') {
+                if ($type === 'custom' && $password !== '') {
                     $u['hash'] = password_hash($password, PASSWORD_DEFAULT);
+                } elseif ($type === 'native') {
+                    unset($u['hash']); // haslo konta natywnego zyje w /etc/shadow, nie u nas
                 }
                 break;
             }
         }
         unset($u);
         if (!$found) {
-            if ($password === '') {
-                echo json_encode(['ok' => false, 'error' => 'Haslo jest wymagane przy tworzeniu nowego konta.']);
+            if ($type === 'custom' && $password === '') {
+                echo json_encode(['ok' => false, 'error' => 'Haslo jest wymagane przy tworzeniu nowego konta niestandardowego.']);
                 exit;
             }
-            $users[] = [
+            $entry = [
                 'username' => $username,
-                'hash' => password_hash($password, PASSWORD_DEFAULT),
+                'type' => $type,
                 'role' => $role,
                 'sections' => $sections,
                 'enabled' => $enabled,
                 'created' => date('Y-m-d H:i:s'),
             ];
+            if ($type === 'custom') {
+                $entry['hash'] = password_hash($password, PASSWORD_DEFAULT);
+            }
+            $users[] = $entry;
         }
         if (!wac_save_users($users)) {
             echo json_encode(['ok' => false, 'error' => 'Nie udalo sie zapisac pliku konfiguracji.']);

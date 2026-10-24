@@ -24,6 +24,34 @@ function wac_sections(): array {
     ];
 }
 
+// Konta unRAID dodane przez natywny panel Uzytkownicy (udostepnianie SMB/NFS),
+// uid >= 1000, z pominieciem kont systemowych (nobody itp).
+function wac_native_users(): array {
+    $out = [];
+    $lines = @file('/etc/passwd', FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) ?: [];
+    foreach ($lines as $line) {
+        $parts = explode(':', $line);
+        if (count($parts) < 3) continue;
+        $username = $parts[0];
+        $uid = (int)$parts[2];
+        if ($uid < 1000 || $username === 'nobody' || $username === 'root') continue;
+        $out[] = $username;
+    }
+    sort($out);
+    return $out;
+}
+
+// Weryfikuje haslo konta natywnego unRAID przez /etc/shadow (ten sam mechanizm,
+// ktorego uzywa oryginalny .login.php dla roota - password_verify() wspiera
+// rowniez hashe crypt() SHA-512 ($6$...) uzywane przez unRAID dla zwyklych kont).
+function wac_verify_native_password(string $username, string $password): bool {
+    $output = @exec('/usr/bin/getent shadow ' . escapeshellarg($username));
+    if (!$output) return false;
+    $credentials = explode(':', $output);
+    if (empty($credentials[1]) || $credentials[1] === '!' || $credentials[1] === '*') return false;
+    return password_verify($password, $credentials[1]);
+}
+
 function wac_load_users(): array {
     if (!file_exists(WAC_USERS_FILE)) return [];
     $json = @file_get_contents(WAC_USERS_FILE);
@@ -54,8 +82,12 @@ function wac_handle_login(string $username, string $password): void {
             if (empty($u['enabled'])) {
                 throw new Exception(_('Invalid username or password'));
             }
-            if (!password_verify($password, $u['hash'] ?? '')) {
-                wac_log("Login FAILED (zle haslo): $username");
+            $type = $u['type'] ?? 'custom';
+            $ok = $type === 'native'
+                ? wac_verify_native_password($username, $password)
+                : password_verify($password, $u['hash'] ?? '');
+            if (!$ok) {
+                wac_log("Login FAILED (zle haslo): $username ($type)");
                 throw new Exception(_('Invalid username or password'));
             }
             if (session_status() === PHP_SESSION_NONE) {
@@ -67,7 +99,7 @@ function wac_handle_login(string $username, string $password): void {
             $_SESSION['wac_sections'] = $u['sections'] ?? [];
             session_regenerate_id(true);
             session_write_close();
-            wac_log("Login OK: $username (rola: " . ($u['role'] ?? 'user') . ")");
+            wac_log("Login OK: $username (rola: " . ($u['role'] ?? 'user') . ", typ: $type)");
             global $start_page;
             header('Location: /' . ($start_page ?? 'Dashboard'));
             exit;

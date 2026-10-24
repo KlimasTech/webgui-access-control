@@ -7,18 +7,22 @@
 
 $authRequestFile = '/usr/local/emhttp/auth-request.php';
 $loginFile       = '/usr/local/emhttp/plugins/dynamix/include/.login.php';
+$layoutFile      = '/usr/local/emhttp/webGui/include/DefaultPageLayout.php';
 $marker          = 'webgui-access-control';
 $backupDir       = '/boot/config/plugins/webgui-access-control/backup';
 
 // Kopia zapasowa oryginalnych plikow (tylko raz - potrzebna do emergency_revert.sh)
 @mkdir($backupDir, 0700, true);
-if (!file_exists("$backupDir/auth-request.php.orig") && file_exists($authRequestFile)
-    && strpos(file_get_contents($authRequestFile), $marker) === false) {
-    copy($authRequestFile, "$backupDir/auth-request.php.orig");
-}
-if (!file_exists("$backupDir/.login.php.orig") && file_exists($loginFile)
-    && strpos(file_get_contents($loginFile), $marker) === false) {
-    copy($loginFile, "$backupDir/.login.php.orig");
+foreach ([
+    'auth-request.php' => $authRequestFile,
+    '.login.php' => $loginFile,
+    'DefaultPageLayout.php' => $layoutFile,
+] as $label => $path) {
+    $backupPath = "$backupDir/$label.orig";
+    if (!file_exists($backupPath) && file_exists($path)
+        && strpos(file_get_contents($path), $marker) === false) {
+        copy($path, $backupPath);
+    }
 }
 
 function wac_patch_file(string $file, string $anchor, string $insertion, string $marker): bool {
@@ -76,3 +80,49 @@ $loginInsert = <<<'PHP'
         // <<< webgui-access-control
 PHP;
 wac_patch_file($loginFile, $loginAnchor, $loginInsert, $marker);
+
+// --- DefaultPageLayout.php: wstaw skrypt ukrywajacy zakladki menu dla kont z ograniczonym dostepem ---
+$layoutAnchor = '<?php include "$docroot/webGui/include/DefaultPageLayout/ToastSetup.php"; ?>' . "\n</body>";
+$layoutInsert = <<<'PHP'
+<?php
+// >>> webgui-access-control: ukrywanie zakladek menu niedostepnych dla roli "user"
+if (session_status() === PHP_SESSION_NONE) { @session_start(); }
+if (!empty($_SESSION['wac_role']) && $_SESSION['wac_role'] !== 'admin') {
+  $wacSectionMap = [
+    'Dashboard' => ['/Dashboard', '/Main'],
+    'Shares'    => ['/Shares'],
+    'Users'     => ['/Users'],
+    'Docker'    => ['/Docker'],
+    'VMs'       => ['/VMs'],
+    'Apps'      => ['/Apps'],
+    'Tools'     => ['/Tools'],
+    'Settings'  => ['/Settings'],
+    'Plugins'   => ['/Plugins'],
+    'Log'       => ['/Log'],
+  ];
+  $wacAllowedPrefixes = [];
+  foreach (($_SESSION['wac_sections'] ?? []) as $s) {
+    foreach ($wacSectionMap[$s] ?? [] as $p) { $wacAllowedPrefixes[] = $p; }
+  }
+  ?>
+  <script>
+  (function () {
+    var allowed = <?=json_encode($wacAllowedPrefixes)?>;
+    function isAllowed(href) {
+      if (!href || href.charAt(0) !== '/') return true; // przyciski narzedziowe (#) zawsze widoczne
+      for (var i = 0; i < allowed.length; i++) { if (href.indexOf(allowed[i]) === 0) return true; }
+      return false;
+    }
+    document.querySelectorAll('.nav-item').forEach(function (item) {
+      var a = item.querySelector('a[href]');
+      if (!a) return;
+      if (!isAllowed(a.getAttribute('href'))) { item.style.display = 'none'; }
+    });
+  })();
+  </script>
+  <?php
+}
+// <<< webgui-access-control
+?>
+PHP;
+wac_patch_file($layoutFile, $layoutAnchor, $layoutInsert, $marker);

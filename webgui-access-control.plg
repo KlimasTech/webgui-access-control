@@ -2,11 +2,11 @@
 <!DOCTYPE PLUGIN [
 <!ENTITY name        "webgui-access-control">
 <!ENTITY author      "KlimasTech">
-<!ENTITY version     "2026.10.24">
+<!ENTITY version     "2026.10.25">
 <!ENTITY launch      "Utilities/webgui-access-control">
 <!ENTITY pluginURL   "https://raw.githubusercontent.com/KlimasTech/webgui-access-control/main/webgui-access-control.plg">
 <!ENTITY packageURL  "https://github.com/KlimasTech/webgui-access-control/releases/download/&version;/webgui-access-control-&version;.txz">
-<!ENTITY packageMD5  "ef8e994c02cdc6ddd3e638832e95c01c">
+<!ENTITY packageMD5  "ad2f7d689c1e1b823b6e327773116407">
 <!ENTITY pluginLOC   "/boot/config/plugins/&name;">
 <!ENTITY emhttpLOC   "/usr/local/emhttp/plugins/&name;">
 ]>
@@ -15,11 +15,19 @@
 
 <CHANGES>
 ### &version;
+- Logowanie obsluguje teraz konta dodane w natywnym panelu Uzytkownicy unRAID (nie tylko konta niestandardowe
+  tworzone w tym pluginie) - haslo weryfikowane bezposrednio przez /etc/shadow, bez duplikowania go w pluginie
+- Formularz "Dodaj konto" pozwala wybrac typ konta: istniejacy uzytkownik unRAID (z listy) lub nowe konto
+  niestandardowe (login+haslo zarzadzane w pluginie)
+- Zakladki menu, do ktorych uzytkownik nie ma dostepu, sa teraz ukrywane w interfejsie (nie tylko blokowane 403
+  po kliknieciu) - dziala przez dodatkowy, trzeci patch pliku DefaultPageLayout.php
+
+### 2026.10.24
 - Pierwsze wydanie: dodatkowe konta logowania do WebGUI (poza root) z rolami admin/user i ograniczeniem dostepu
   do wybranych sekcji panelu (Dashboard, Shares, Docker, VMs, Settings, itd.)
-- UWAGA BEZPIECZENSTWA: plugin dziala przez patchowanie dwoch plikow systemowych unRAID (auth-request.php,
-  .login.php) naladanych ponownie przy kazdym starcie systemu. W razie problemow z logowaniem uruchom przez SSH:
-  /usr/local/emhttp/plugins/webgui-access-control/scripts/emergency_revert.sh
+- UWAGA BEZPIECZENSTWA: plugin dziala przez patchowanie plikow systemowych unRAID (auth-request.php, .login.php,
+  DefaultPageLayout.php) nakladanych ponownie przy kazdym starcie systemu. W razie problemow z logowaniem
+  uruchom przez SSH: /usr/local/emhttp/plugins/webgui-access-control/scripts/emergency_revert.sh
 </CHANGES>
 
 <!-- PRZYGOTOWANIE -->

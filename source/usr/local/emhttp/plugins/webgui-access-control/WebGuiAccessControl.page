@@ -57,8 +57,8 @@ $csrfToken = is_array($varIni) ? ($varIni['csrf_token'] ?? '') : '';
       pliki unRAID natychmiast.
     </div>
     <table id="wac-table">
-      <thead><tr><th>Uzytkownik</th><th>Rola</th><th>Status</th><th>Sekcje</th><th></th></tr></thead>
-      <tbody id="wac-tbody"><tr><td colspan="5">Ladowanie…</td></tr></tbody>
+      <thead><tr><th>Uzytkownik</th><th>Typ</th><th>Rola</th><th>Status</th><th>Sekcje</th><th></th></tr></thead>
+      <tbody id="wac-tbody"><tr><td colspan="6">Ladowanie…</td></tr></tbody>
     </table>
   </div>
 
@@ -68,10 +68,21 @@ $csrfToken = is_array($varIni) ? ($varIni['csrf_token'] ?? '') : '';
       <input type="hidden" id="wac-edit-mode" value="create">
       <div class="wac-form">
         <div class="wac-field">
+          <label>Typ konta</label>
+          <select id="wac-type">
+            <option value="custom">Nowe konto niestandardowe (login+haslo zarzadzane tu)</option>
+            <option value="native">Istniejacy uzytkownik unRAID (z panelu Uzytkownicy)</option>
+          </select>
+        </div>
+        <div class="wac-field" id="wac-native-field" style="display:none;">
+          <label>Uzytkownik unRAID</label>
+          <select id="wac-native-select"></select>
+        </div>
+        <div class="wac-field" id="wac-username-field">
           <label>Nazwa uzytkownika</label>
           <input type="text" id="wac-username" autocomplete="off">
         </div>
-        <div class="wac-field">
+        <div class="wac-field" id="wac-password-field">
           <label>Haslo (puste = bez zmian przy edycji)</label>
           <input type="password" id="wac-password" autocomplete="new-password">
         </div>
@@ -103,6 +114,7 @@ $csrfToken = is_array($varIni) ? ($varIni['csrf_token'] ?? '') : '';
     csrfToken: <?=json_encode($csrfToken)?>,
     apiUrl: '/plugins/webgui-access-control/scripts/users_api.php',
     allSections: [],
+    nativeUsers: [],
   };
 
   function $(id) { return document.getElementById(id); }
@@ -143,15 +155,17 @@ $csrfToken = is_array($varIni) ? ($varIni['csrf_token'] ?? '') : '';
   function renderTable(users) {
     var tbody = $('wac-tbody');
     if (!users.length) {
-      tbody.innerHTML = '<tr><td colspan="5">Brak dodatkowych kont - tylko root.</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="6">Brak dodatkowych kont - tylko root.</td></tr>';
       return;
     }
     tbody.innerHTML = users.map(function (u) {
+      var typeLabel = u.type === 'native' ? 'unRAID' : 'niestandardowe';
       var rolePill = '<span class="pill ' + (u.role === 'admin' ? 'admin' : 'user') + '">' + esc(u.role) + '</span>';
       var statusPill = u.enabled ? '<span class="pill user">aktywne</span>' : '<span class="pill off">wylaczone</span>';
       var sections = (u.sections || []).map(function (s) { return '<span class="sec-tag">' + esc(s) + '</span>'; }).join('') || '<i>brak</i>';
       return '<tr>' +
         '<td>' + esc(u.username) + '</td>' +
+        '<td>' + esc(typeLabel) + '</td>' +
         '<td>' + rolePill + '</td>' +
         '<td>' + statusPill + '</td>' +
         '<td>' + sections + '</td>' +
@@ -180,12 +194,34 @@ $csrfToken = is_array($varIni) ? ($varIni['csrf_token'] ?? '') : '';
     });
   }
 
+  function populateNativeSelect() {
+    var sel = $('wac-native-select');
+    if (!sel) return;
+    if (!WAC.nativeUsers.length) {
+      sel.innerHTML = '<option value="">(brak dostepnych kont unRAID - wszystkie juz skonfigurowane lub nie utworzono zadnego w panelu Uzytkownicy)</option>';
+      return;
+    }
+    sel.innerHTML = WAC.nativeUsers.map(function (u) { return '<option value="' + esc(u) + '">' + esc(u) + '</option>'; }).join('');
+  }
+
+  function applyTypeVisibility() {
+    var isNative = $('wac-type').value === 'native';
+    $('wac-native-field').style.display = isNative ? '' : 'none';
+    $('wac-username-field').style.display = isNative ? 'none' : '';
+    $('wac-password-field').style.display = isNative ? 'none' : '';
+  }
+
   function startEdit(username, users) {
     var u = users.find(function (x) { return x.username === username; });
     if (!u) return;
     $('wac-edit-mode').value = 'edit';
+    $('wac-type').value = u.type === 'native' ? 'native' : 'custom';
+    $('wac-type').disabled = true;
+    applyTypeVisibility();
     $('wac-username').value = u.username;
     $('wac-username').disabled = true;
+    $('wac-native-select').value = u.username;
+    $('wac-native-select').disabled = true;
     $('wac-password').value = '';
     $('wac-role').value = u.role;
     $('wac-enabled').checked = !!u.enabled;
@@ -197,11 +233,16 @@ $csrfToken = is_array($varIni) ? ($varIni['csrf_token'] ?? '') : '';
 
   function resetForm() {
     $('wac-edit-mode').value = 'create';
+    $('wac-type').value = 'custom';
+    $('wac-type').disabled = false;
     $('wac-username').value = '';
     $('wac-username').disabled = false;
+    $('wac-native-select').disabled = false;
+    populateNativeSelect();
     $('wac-password').value = '';
     $('wac-role').value = 'user';
     $('wac-enabled').checked = true;
+    applyTypeVisibility();
     renderSectionChecks([]);
     $('wac-form-title').textContent = 'Dodaj konto';
     $('wac-cancel').style.display = 'none';
@@ -212,18 +253,24 @@ $csrfToken = is_array($varIni) ? ($varIni['csrf_token'] ?? '') : '';
       .then(function (d) {
         if (!d.ok) { showStatus(false, d.error); return; }
         WAC.allSections = d.sections;
+        WAC.nativeUsers = d.nativeUsers || [];
         renderTable(d.users);
+        populateNativeSelect();
         if ($('wac-sections').children.length === 0) { renderSectionChecks([]); }
       })
       .catch(function (e) { showStatus(false, e.message); });
   }
 
   function bindForm() {
+    $('wac-type').addEventListener('change', applyTypeVisibility);
     $('wac-save').addEventListener('click', function () {
       var sections = Array.from(document.querySelectorAll('.wac-sec-cb:checked')).map(function (c) { return c.value; });
+      var type = $('wac-type').value;
+      var username = type === 'native' ? $('wac-native-select').value : $('wac-username').value.trim();
       wacFetch({
         action: 'save',
-        username: $('wac-username').value.trim(),
+        type: type,
+        username: username,
         password: $('wac-password').value,
         role: $('wac-role').value,
         enabled: $('wac-enabled').checked ? '1' : '',
