@@ -6,7 +6,7 @@
 <!ENTITY launch      "Utilities/webgui-access-control">
 <!ENTITY pluginURL   "https://raw.githubusercontent.com/KlimasTech/webgui-access-control/main/webgui-access-control.plg">
 <!ENTITY packageURL  "https://github.com/KlimasTech/webgui-access-control/releases/download/&version;/webgui-access-control-&version;.txz">
-<!ENTITY packageMD5  "PLACEHOLDER_MD5">
+<!ENTITY packageMD5  "ef8e994c02cdc6ddd3e638832e95c01c">
 <!ENTITY pluginLOC   "/boot/config/plugins/&name;">
 <!ENTITY emhttpLOC   "/usr/local/emhttp/plugins/&name;">
 ]>
