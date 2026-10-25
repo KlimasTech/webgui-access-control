@@ -2,11 +2,11 @@
 <!DOCTYPE PLUGIN [
 <!ENTITY name        "webgui-access-control">
 <!ENTITY author      "KlimasTech">
-<!ENTITY version     "2026.10.25a">
+<!ENTITY version     "2026.10.25b">
 <!ENTITY launch      "Utilities/webgui-access-control">
 <!ENTITY pluginURL   "https://raw.githubusercontent.com/KlimasTech/webgui-access-control/main/webgui-access-control.plg">
 <!ENTITY packageURL  "https://github.com/KlimasTech/webgui-access-control/releases/download/&version;/webgui-access-control-&version;.txz">
-<!ENTITY packageMD5  "58ab8401b5f3685348bf9b31d3c57226">
+<!ENTITY packageMD5  "c8161e1b5b764108e14e17c82ea9a925">
 <!ENTITY pluginLOC   "/boot/config/plugins/&name;">
 <!ENTITY emhttpLOC   "/usr/local/emhttp/plugins/&name;">
 ]>
@@ -15,6 +15,17 @@
 
 <CHANGES>
 ### &version;
+- Naprawiono ukrywanie ikon kafelkow Dashboardu: poprzednia wersja probowala ukrywac linki
+  "/Settings/..." ale realne kafelki uzywaja scieżek typu "/Dashboard/Settings/XYZ", wiec nic
+  sie nie ukrywalo. Teraz: w kazdym kafelku w prawym gornym rogu ukrywane sa WSZYSTKIE ikonki
+  (zebatka ustawien, zarzadzanie kafelkami, pokaz/ukryj cala zawartosc, a takze bezposrednie
+  przyciski systemowe Zatrzymaj macierz / Restart / Wylacz systemu) poza ikonka zwijania
+  samego kafelka - ktora zostaje zawsze widoczna. Dane/parametry w kafelku nigdy nie sa ukrywane.
+- To naprawia tez realna luke bezpieczenstwa: wczesniej ograniczony user z dostepem tylko do
+  Dashboardu mogl kliknac bezposrednio "Zatrzymaj macierz"/"Restart"/"Wylacz system" z kafelka
+  Backup, omijajac kontrole dostepu do stron
+
+### 2026.10.25a
 - Naprawiono blad "Nieprawidlowa nazwa uzytkownika" przy zapisie/edycji istniejacego konta
   natywnego unRAID (rozwijana lista "dostepnych" kont nie zawierala wlasnego juz-skonfigurowanego
   konta, wiec formularz wysylal pusta nazwe)
@@ -22,8 +33,6 @@
   nie ma dostepu do dedykowanej strony danej sekcji (np. widget Dockera na Dashboardzie dziala
   bez przyznawania osobnego dostepu do strony /Docker) - endpointy AJAX dostarczajace dane byly
   wczesniej blednie blokowane
-- Ikonki "configure" (zebatki) prowadzace do /Settings/... sa ukrywane w interfejsie gdy
-  uzytkownik nie ma dostepu do Ustawien - sama tresc/dane kafelkow pozostaja widoczne
 - Nowe granularne uprawnienia dla Docker i VM: dodawanie, edycja/usuwanie, start/stop/restart -
   mozna je przyznawac niezaleznie, ograniczajac dostepne przyciski i pozycje menu kontekstowego
   (uwaga: to ograniczenie na poziomie interfejsu, nie twarda bariera backendowa jak w przypadku

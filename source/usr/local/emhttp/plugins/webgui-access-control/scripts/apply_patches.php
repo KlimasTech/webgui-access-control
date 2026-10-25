@@ -118,19 +118,30 @@ if (!empty($_SESSION['wac_role']) && $_SESSION['wac_role'] !== 'admin') {
       if (!a) return;
       if (!isAllowed(a.getAttribute('href'))) { item.style.display = 'none'; }
     });
-    // Dashboard (i inne strony) pokazuja dane/parametry normalnie, ale ikonki "configure"
-    // prowadzace do sekcji, do ktorej user nie ma dostepu (np. zebatka na kafelku wtyczki
-    // prowadzaca do /Settings/XYZ), sa ukrywane - sama tresc/dane kafelka zostaja widoczne.
-    function hideConfigLinks() {
-      document.querySelectorAll('a[href^="/Settings"]').forEach(function (a) {
-        if (!isAllowed(a.getAttribute('href'))) {
-          var icon = a.closest('span, div, td') || a;
-          icon.style.display = 'none';
-        }
+    // Dashboard (i inne strony z kafelkami) pokazuja dane/parametry normalnie - NIGDY nie
+    // ukrywamy tresci kafelka. Ukrywamy tylko ikonki w prawym gornym rogu kafelka (ustawienia,
+    // zarzadzanie, a nawet przyciski systemowe typu Zatrzymaj macierz/Restart/Wylacz - te
+    // ostatnie sa pomijane bez wzgledu na przyznane sekcje, bo to bezposrednie akcje systemowe
+    // omijajace kontrole dostepu per-strona). Zostaje widoczna wylacznie ikonka zwijania kafelka
+    // (chevron "openclose") - to tylko lokalny podglad/ukrycie tresci, nie dostep do danych.
+    function hideTileIcons() {
+      document.querySelectorAll('.tile-header-right').forEach(function (right) {
+        right.querySelectorAll('.tile-ctrl').forEach(function (ctrl) { ctrl.style.display = 'none'; });
+        right.querySelectorAll('.tile-header-right-controls').forEach(function (controls) {
+          var seenCollapse = false;
+          Array.prototype.forEach.call(controls.children, function (child) {
+            if (seenCollapse) { return; } // elementy PO ikonie zwijania (jesli jakies sa) zostaja widoczne
+            if (child.classList.contains('openclose') || child.querySelector('.openclose')) {
+              seenCollapse = true;
+              return;
+            }
+            child.style.display = 'none';
+          });
+        });
       });
     }
-    hideConfigLinks();
-    new MutationObserver(hideConfigLinks).observe(document.body, { childList: true, subtree: true });
+    hideTileIcons();
+    new MutationObserver(hideTileIcons).observe(document.body, { childList: true, subtree: true });
 
     // --- Docker / VM: granularne pod-uprawnienia (dodawanie / edycja / start-stop) ---
     var path = location.pathname;
