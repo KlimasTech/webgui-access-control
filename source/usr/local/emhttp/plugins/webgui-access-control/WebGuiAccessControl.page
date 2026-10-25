@@ -97,6 +97,10 @@ $csrfToken = is_array($varIni) ? ($varIni['csrf_token'] ?? '') : '';
           <label><input type="checkbox" id="wac-enabled" checked style="width:auto;margin-right:6px;">Konto aktywne</label>
         </div>
         <div class="checks" id="wac-sections"></div>
+        <div class="wac-field" style="grid-column: 1 / -1;">
+          <label>Dodatkowe uprawnienia Docker / VM (dzialaja tylko gdy sekcja powyzej jest zaznaczona)</label>
+          <div class="checks" id="wac-subperms"></div>
+        </div>
       </div>
       <div style="margin-top:14px;display:flex;gap:10px;">
         <button type="button" class="wac-btn" id="wac-save">Zapisz konto</button>
@@ -114,6 +118,7 @@ $csrfToken = is_array($varIni) ? ($varIni['csrf_token'] ?? '') : '';
     csrfToken: <?=json_encode($csrfToken)?>,
     apiUrl: '/plugins/webgui-access-control/scripts/users_api.php',
     allSections: [],
+    subPermissions: {},
     nativeUsers: [],
   };
 
@@ -149,6 +154,16 @@ $csrfToken = is_array($varIni) ? ($varIni['csrf_token'] ?? '') : '';
     box.innerHTML = WAC.allSections.map(function (s) {
       var checked = selected.indexOf(s) !== -1 ? 'checked' : '';
       return '<label><input type="checkbox" class="wac-sec-cb" value="' + esc(s) + '" ' + checked + '>' + esc(s) + '</label>';
+    }).join('');
+  }
+
+  function renderSubPermChecks(selected) {
+    selected = selected || [];
+    var box = $('wac-subperms');
+    if (!box) return;
+    box.innerHTML = Object.keys(WAC.subPermissions).map(function (key) {
+      var checked = selected.indexOf(key) !== -1 ? 'checked' : '';
+      return '<label><input type="checkbox" class="wac-sec-cb" value="' + esc(key) + '" ' + checked + '>' + esc(WAC.subPermissions[key]) + '</label>';
     }).join('');
   }
 
@@ -220,12 +235,25 @@ $csrfToken = is_array($varIni) ? ($varIni['csrf_token'] ?? '') : '';
     applyTypeVisibility();
     $('wac-username').value = u.username;
     $('wac-username').disabled = true;
-    $('wac-native-select').value = u.username;
+    if (u.type === 'native') {
+      // Wlasny uzytkownik moze nie byc na liscie "dostepnych" (bo juz skonfigurowany) - dodaj tymczasowo,
+      // inaczej select.value nie ustawi sie na nic i formularz wysle pusta/bledna nazwe.
+      var sel = $('wac-native-select');
+      var hasOpt = Array.prototype.some.call(sel.options, function (o) { return o.value === u.username; });
+      if (!hasOpt) {
+        var opt = document.createElement('option');
+        opt.value = u.username;
+        opt.textContent = u.username;
+        sel.insertBefore(opt, sel.firstChild);
+      }
+      sel.value = u.username;
+    }
     $('wac-native-select').disabled = true;
     $('wac-password').value = '';
     $('wac-role').value = u.role;
     $('wac-enabled').checked = !!u.enabled;
     renderSectionChecks(u.sections);
+    renderSubPermChecks(u.sections);
     $('wac-form-title').textContent = 'Edycja konta: ' + u.username;
     $('wac-cancel').style.display = '';
     window.scrollTo({ top: $('wac-form').getBoundingClientRect().top + window.scrollY - 20, behavior: 'smooth' });
@@ -244,6 +272,7 @@ $csrfToken = is_array($varIni) ? ($varIni['csrf_token'] ?? '') : '';
     $('wac-enabled').checked = true;
     applyTypeVisibility();
     renderSectionChecks([]);
+    renderSubPermChecks([]);
     $('wac-form-title').textContent = 'Dodaj konto';
     $('wac-cancel').style.display = 'none';
   }
@@ -253,10 +282,12 @@ $csrfToken = is_array($varIni) ? ($varIni['csrf_token'] ?? '') : '';
       .then(function (d) {
         if (!d.ok) { showStatus(false, d.error); return; }
         WAC.allSections = d.sections;
+        WAC.subPermissions = d.subPermissions || {};
         WAC.nativeUsers = d.nativeUsers || [];
         renderTable(d.users);
         populateNativeSelect();
         if ($('wac-sections').children.length === 0) { renderSectionChecks([]); }
+        if ($('wac-subperms') && $('wac-subperms').children.length === 0) { renderSubPermChecks([]); }
       })
       .catch(function (e) { showStatus(false, e.message); });
   }

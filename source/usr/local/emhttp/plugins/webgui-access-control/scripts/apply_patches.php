@@ -118,6 +118,78 @@ if (!empty($_SESSION['wac_role']) && $_SESSION['wac_role'] !== 'admin') {
       if (!a) return;
       if (!isAllowed(a.getAttribute('href'))) { item.style.display = 'none'; }
     });
+    // Dashboard (i inne strony) pokazuja dane/parametry normalnie, ale ikonki "configure"
+    // prowadzace do sekcji, do ktorej user nie ma dostepu (np. zebatka na kafelku wtyczki
+    // prowadzaca do /Settings/XYZ), sa ukrywane - sama tresc/dane kafelka zostaja widoczne.
+    function hideConfigLinks() {
+      document.querySelectorAll('a[href^="/Settings"]').forEach(function (a) {
+        if (!isAllowed(a.getAttribute('href'))) {
+          var icon = a.closest('span, div, td') || a;
+          icon.style.display = 'none';
+        }
+      });
+    }
+    hideConfigLinks();
+    new MutationObserver(hideConfigLinks).observe(document.body, { childList: true, subtree: true });
+
+    // --- Docker / VM: granularne pod-uprawnienia (dodawanie / edycja / start-stop) ---
+    var path = location.pathname;
+    var onDocker = path.indexOf('/Docker') === 0;
+    var onVMs = path.indexOf('/VMs') === 0;
+    if (onDocker || onVMs) {
+      var prefix = onDocker ? 'Docker' : 'VMs';
+      function hasPerm(p) { return allowedSections.indexOf(prefix + ':' + p) !== -1; }
+      var allowedSections = <?=json_encode($_SESSION['wac_sections'] ?? [])?>;
+      var canAdd = hasPerm('add'), canEdit = hasPerm('edit'), canPower = hasPerm('power');
+
+      // Globalne przyciski akcji na gorze strony (Dodaj kontener/VM, Uruchom/Zatrzymaj wszystkie, itp.)
+      var globalButtonBucket = {
+        addContainer: 'add', addVm: 'add', addVM: 'add',
+        startAll: 'power', stopAll: 'power', pauseAll: 'power', resumeAll: 'power',
+        checkAll: 'edit', updateAll: 'edit'
+      };
+      function allowedBucket(need) {
+        return (need === 'add' && canAdd) || (need === 'edit' && canEdit) || (need === 'power' && canPower);
+      }
+      function hideGlobalButtons() {
+        document.querySelectorAll('input[type=button][onclick]').forEach(function (b) {
+          var m = b.getAttribute('onclick').match(/^([a-zA-Z_]+)\(/);
+          if (!m || !(m[1] in globalButtonBucket)) return;
+          if (!allowedBucket(globalButtonBucket[m[1]])) { b.style.display = 'none'; }
+        });
+      }
+      hideGlobalButtons();
+      setTimeout(hideGlobalButtons, 1500); // niektore przyciski doladowuja sie przez AJAX
+
+      // Menu kontekstowe pojedynczego kontenera/VM (Uruchom/Stop/Edytuj/Usun...) - rozpoznawane
+      // po klasie ikony <i class="fa fa-..."> wewnatrz pozycji menu (jezykowo niezalezne).
+      var iconBucket = {
+        'fa-play': 'power', 'fa-stop': 'power', 'fa-pause': 'power', 'fa-power-off': 'power',
+        'fa-refresh': 'power', 'fa-repeat': 'power', 'fa-undo': 'power',
+        'fa-wrench': 'edit', 'fa-trash': 'edit', 'fa-clone': 'edit', 'fa-copy': 'edit', 'fa-pencil': 'edit'
+      };
+      function filterContextMenu(menu) {
+        menu.querySelectorAll('li').forEach(function (li) {
+          var icon = li.querySelector('i[class*="fa-"]');
+          if (!icon) return;
+          for (var cls in iconBucket) {
+            if (icon.classList.contains(cls)) {
+              if (!allowedBucket(iconBucket[cls])) { li.style.display = 'none'; }
+              return;
+            }
+          }
+        });
+      }
+      new MutationObserver(function (muts) {
+        muts.forEach(function (m) {
+          m.addedNodes.forEach(function (n) {
+            if (n.nodeType !== 1) return;
+            if (n.matches && n.matches('ul.dropdown-context, ul[id^="dropdown-"]')) { filterContextMenu(n); }
+            if (n.querySelectorAll) { n.querySelectorAll('ul.dropdown-context, ul[id^="dropdown-"]').forEach(filterContextMenu); }
+          });
+        });
+      }).observe(document.body, { childList: true, subtree: true });
+    }
   })();
   </script>
   <?php

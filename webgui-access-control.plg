@@ -2,11 +2,11 @@
 <!DOCTYPE PLUGIN [
 <!ENTITY name        "webgui-access-control">
 <!ENTITY author      "KlimasTech">
-<!ENTITY version     "2026.10.25">
+<!ENTITY version     "2026.10.25a">
 <!ENTITY launch      "Utilities/webgui-access-control">
 <!ENTITY pluginURL   "https://raw.githubusercontent.com/KlimasTech/webgui-access-control/main/webgui-access-control.plg">
 <!ENTITY packageURL  "https://github.com/KlimasTech/webgui-access-control/releases/download/&version;/webgui-access-control-&version;.txz">
-<!ENTITY packageMD5  "ad2f7d689c1e1b823b6e327773116407">
+<!ENTITY packageMD5  "58ab8401b5f3685348bf9b31d3c57226">
 <!ENTITY pluginLOC   "/boot/config/plugins/&name;">
 <!ENTITY emhttpLOC   "/usr/local/emhttp/plugins/&name;">
 ]>
@@ -15,12 +15,19 @@
 
 <CHANGES>
 ### &version;
-- Logowanie obsluguje teraz konta dodane w natywnym panelu Uzytkownicy unRAID (nie tylko konta niestandardowe
-  tworzone w tym pluginie) - haslo weryfikowane bezposrednio przez /etc/shadow, bez duplikowania go w pluginie
-- Formularz "Dodaj konto" pozwala wybrac typ konta: istniejacy uzytkownik unRAID (z listy) lub nowe konto
-  niestandardowe (login+haslo zarzadzane w pluginie)
-- Zakladki menu, do ktorych uzytkownik nie ma dostepu, sa teraz ukrywane w interfejsie (nie tylko blokowane 403
-  po kliknieciu) - dziala przez dodatkowy, trzeci patch pliku DefaultPageLayout.php
+- Naprawiono blad "Nieprawidlowa nazwa uzytkownika" przy zapisie/edycji istniejacego konta
+  natywnego unRAID (rozwijana lista "dostepnych" kont nie zawierala wlasnego juz-skonfigurowanego
+  konta, wiec formularz wysylal pusta nazwe)
+- Dashboard (i inne strony) teraz poprawnie wyswietla pelne dane/parametry nawet gdy uzytkownik
+  nie ma dostepu do dedykowanej strony danej sekcji (np. widget Dockera na Dashboardzie dziala
+  bez przyznawania osobnego dostepu do strony /Docker) - endpointy AJAX dostarczajace dane byly
+  wczesniej blednie blokowane
+- Ikonki "configure" (zebatki) prowadzace do /Settings/... sa ukrywane w interfejsie gdy
+  uzytkownik nie ma dostepu do Ustawien - sama tresc/dane kafelkow pozostaja widoczne
+- Nowe granularne uprawnienia dla Docker i VM: dodawanie, edycja/usuwanie, start/stop/restart -
+  mozna je przyznawac niezaleznie, ograniczajac dostepne przyciski i pozycje menu kontekstowego
+  (uwaga: to ograniczenie na poziomie interfejsu, nie twarda bariera backendowa jak w przypadku
+  dostepu do calych stron)
 
 ### 2026.10.24
 - Pierwsze wydanie: dodatkowe konta logowania do WebGUI (poza root) z rolami admin/user i ograniczeniem dostepu

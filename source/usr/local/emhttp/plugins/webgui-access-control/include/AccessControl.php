@@ -24,6 +24,21 @@ function wac_sections(): array {
     ];
 }
 
+// Granularne pod-uprawnienia dla Docker/VM (NIE sa to sciezki URL - to flagi odczytywane
+// po stronie klienta przez skrypt wstrzykiwany w DefaultPageLayout.php, bo Docker/VM
+// Manager nie ma oddzielnych, latwych do przechwycenia po stronie serwera endpointow per-akcja;
+// to ograniczenie na poziomie UI, nie twardej bariery backendowej jak w przypadku sekcji stron).
+function wac_subpermissions(): array {
+    return [
+        'Docker:add'   => 'Docker: dodawanie kontenerow',
+        'Docker:edit'  => 'Docker: edycja / usuwanie',
+        'Docker:power' => 'Docker: start / stop / restart',
+        'VMs:add'      => 'VM: dodawanie maszyn',
+        'VMs:edit'     => 'VM: edycja / usuwanie / klonowanie',
+        'VMs:power'    => 'VM: start / stop / restart',
+    ];
+}
+
 // Konta unRAID dodane przez natywny panel Uzytkownicy (udostepnianie SMB/NFS),
 // uid >= 1000, z pominieciem kont systemowych (nobody itp).
 function wac_native_users(): array {
@@ -109,16 +124,37 @@ function wac_handle_login(string $username, string $password): void {
 
 // Wywolywane z auth-request.php DLA KAZDEGO zadania po stwierdzeniu ze sesja jest zalogowana.
 // root / custom-admin = zawsze dozwolone. custom-user = tylko przypisane sekcje.
+function wac_path_matches(string $path, array $prefixes): bool {
+    foreach ($prefixes as $prefix) {
+        if ($prefix === '/' && $path === '/') return true;
+        if ($prefix !== '/' && str_starts_with($path, $prefix)) return true;
+    }
+    return false;
+}
+
 function wac_check_permission(string $requestPath): bool {
     if (!isset($_SESSION['wac_role']) || $_SESSION['wac_role'] === 'admin') {
         return true;
     }
     $allowedSections = $_SESSION['wac_sections'] ?? [];
     $sections = wac_sections();
+    $prefixes = [];
     foreach ($allowedSections as $sec) {
-        foreach (($sections[$sec] ?? []) as $prefix) {
-            if ($prefix === '/' && $requestPath === '/') return true;
-            if ($prefix !== '/' && str_starts_with($requestPath, $prefix)) return true;
+        foreach (($sections[$sec] ?? []) as $prefix) { $prefixes[] = $prefix; }
+    }
+    if (wac_path_matches($requestPath, $prefixes)) {
+        return true;
+    }
+    // Fallback: wiele stron (Dashboard, Docker, VMs...) doladowuje dane przez wspoldzielone
+    // endpointy AJAX pod /webGui/include/*.php, ktore nie maja wlasnego prefiksu sekcji
+    // (np. DockerContainers.php, VMs.php). Zamiast blokowac je zawsze (co psuje wyswietlanie
+    // parametrow na dozwolonych stronach), sprawdz naglowek Referer - jesli zadanie przyszlo
+    // ze strony nalezacej do dozwolonej sekcji, przepusc je (sama strona i tak jest juz chroniona).
+    $referer = $_SERVER['HTTP_REFERER'] ?? '';
+    if ($referer !== '') {
+        $refPath = parse_url($referer, PHP_URL_PATH) ?: '';
+        if (wac_path_matches($refPath, $prefixes)) {
+            return true;
         }
     }
     return false;

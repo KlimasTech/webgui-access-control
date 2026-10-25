@@ -53,6 +53,7 @@ switch ($action) {
             'ok' => true,
             'users' => array_values($safe),
             'sections' => array_keys(wac_sections()),
+            'subPermissions' => wac_subpermissions(),
             'nativeUsers' => $nativeAvailable,
         ]);
         break;
@@ -77,7 +78,7 @@ switch ($action) {
             echo json_encode(['ok' => false, 'error' => 'Nie znaleziono takiego konta w panelu Uzytkownicy unRAID.']);
             exit;
         }
-        $validSections = array_keys(wac_sections());
+        $validSections = array_merge(array_keys(wac_sections()), array_keys(wac_subpermissions()));
         $sections = array_values(array_intersect($sections, $validSections));
 
         $found = false;
