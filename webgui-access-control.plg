@@ -2,8 +2,8 @@
 <!DOCTYPE PLUGIN [
 <!ENTITY name        "webgui-access-control">
 <!ENTITY author      "KlimasTech">
-<!ENTITY version     "2026.10.25d">
-<!ENTITY launch      "Utilities/webgui-access-control">
+<!ENTITY version     "2026.10.25e">
+<!ENTITY launch      "Settings/WebGuiAccessControl">
 <!ENTITY pluginURL   "https://raw.githubusercontent.com/KlimasTech/webgui-access-control/main/webgui-access-control.plg">
 <!ENTITY packageURL  "https://github.com/KlimasTech/webgui-access-control/releases/download/&version;/webgui-access-control-&version;.txz">
 <!ENTITY packageMD5  "87eab3a5bd24555c1002f601b2d0e233">
@@ -15,6 +15,12 @@
 
 <CHANGES>
 ### &version;
+- Naprawiono blad: kliknieko ikonki wtyczki na stronie Wtyczki (Plugins) przenosilo pod zly
+  URL ("/Utilities/webgui-access-control") i ladowalo pusta strone (blad wystepowal dla
+  KAZDEGO konta, wlacznie z prawdziwym rootem - to nie byl problem uprawnien). Poprawiono
+  atrybut "launch" w .plg na poprawny adres strony ustawien ("/Settings/WebGuiAccessControl")
+
+### 2026.10.25d
 - Na stronie "Glowna" (/Main) ukryto wszystkie przyciski operacji na macierzy dla kont
   ograniczonych: Zatrzymaj, Sprawdz, Historia, Wybudzenie/Usypianie dysku, Przeniesienie danych,
   Restart, Wylaczenie systemu. Zostaje widoczna wylacznie informacja o ostatnio wykonanym
