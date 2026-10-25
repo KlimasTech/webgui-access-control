@@ -133,6 +133,14 @@ function wac_path_matches(string $path, array $prefixes): bool {
 }
 
 function wac_check_permission(string $requestPath): bool {
+    // Kanaly live-push Nchan (/sub/...) dostarczaja wylacznie ogolne dane kondycji systemu
+    // (CPU/RAM/siec/powiadomienia) dla widgetow Dashboardu - nie sa to dane specyficzne dla
+    // zadnej chronionej sekcji ani akcje wykonujace cokolwiek. Te polaczenia sa dlugotrwale
+    // (long-poll) i powtarzane czesto, wiec zawsze przepuszczamy je dla kazdej zalogowanej
+    // sesji (rola nieistotna) - blokowanie ich psuje wyswietlanie danych na Dashboardzie.
+    if (str_starts_with($requestPath, '/sub/')) {
+        return true;
+    }
     if (!isset($_SESSION['wac_role']) || $_SESSION['wac_role'] === 'admin') {
         return true;
     }

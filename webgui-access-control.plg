@@ -2,11 +2,11 @@
 <!DOCTYPE PLUGIN [
 <!ENTITY name        "webgui-access-control">
 <!ENTITY author      "KlimasTech">
-<!ENTITY version     "2026.10.25b">
+<!ENTITY version     "2026.10.25c">
 <!ENTITY launch      "Utilities/webgui-access-control">
 <!ENTITY pluginURL   "https://raw.githubusercontent.com/KlimasTech/webgui-access-control/main/webgui-access-control.plg">
 <!ENTITY packageURL  "https://github.com/KlimasTech/webgui-access-control/releases/download/&version;/webgui-access-control-&version;.txz">
-<!ENTITY packageMD5  "c8161e1b5b764108e14e17c82ea9a925">
+<!ENTITY packageMD5  "ded8f04b92661375c6b6fe747f121b93">
 <!ENTITY pluginLOC   "/boot/config/plugins/&name;">
 <!ENTITY emhttpLOC   "/usr/local/emhttp/plugins/&name;">
 ]>
@@ -15,6 +15,14 @@
 
 <CHANGES>
 ### &version;
+- Naprawiono brak danych na kafelkach System (zuzycie RAM) i Interfejs (ruch sieciowy) na
+  Dashboardzie dla kont z ograniczonym dostepem. Przyczyna: te widgety aktualizuja sie na
+  zywo przez kanaly push Nchan (sciezki /sub/...), ktore nie naleza do zadnej chronionej
+  sekcji strony - byly wiec blednie blokowane. Kanaly /sub/ sa teraz zawsze przepuszczane
+  dla kazdej zalogowanej sesji (dostarczaja wylacznie ogolne dane kondycji systemu, nie sa
+  to akcje ani dane specyficzne dla konkretnej sekcji)
+
+### 2026.10.25b
 - Naprawiono ukrywanie ikon kafelkow Dashboardu: poprzednia wersja probowala ukrywac linki
   "/Settings/..." ale realne kafelki uzywaja scieżek typu "/Dashboard/Settings/XYZ", wiec nic
   sie nie ukrywalo. Teraz: w kazdym kafelku w prawym gornym rogu ukrywane sa WSZYSTKIE ikonki
