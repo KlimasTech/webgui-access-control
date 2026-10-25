@@ -2,11 +2,11 @@
 <!DOCTYPE PLUGIN [
 <!ENTITY name        "webgui-access-control">
 <!ENTITY author      "KlimasTech">
-<!ENTITY version     "2026.10.25c">
+<!ENTITY version     "2026.10.25d">
 <!ENTITY launch      "Utilities/webgui-access-control">
 <!ENTITY pluginURL   "https://raw.githubusercontent.com/KlimasTech/webgui-access-control/main/webgui-access-control.plg">
 <!ENTITY packageURL  "https://github.com/KlimasTech/webgui-access-control/releases/download/&version;/webgui-access-control-&version;.txz">
-<!ENTITY packageMD5  "ded8f04b92661375c6b6fe747f121b93">
+<!ENTITY packageMD5  "87eab3a5bd24555c1002f601b2d0e233">
 <!ENTITY pluginLOC   "/boot/config/plugins/&name;">
 <!ENTITY emhttpLOC   "/usr/local/emhttp/plugins/&name;">
 ]>
@@ -15,6 +15,12 @@
 
 <CHANGES>
 ### &version;
+- Na stronie "Glowna" (/Main) ukryto wszystkie przyciski operacji na macierzy dla kont
+  ograniczonych: Zatrzymaj, Sprawdz, Historia, Wybudzenie/Usypianie dysku, Przeniesienie danych,
+  Restart, Wylaczenie systemu. Zostaje widoczna wylacznie informacja o ostatnio wykonanym
+  sprawdzaniu macierzy (data, czas trwania, liczba znalezionych bledow)
+
+### 2026.10.25c
 - Naprawiono brak danych na kafelkach System (zuzycie RAM) i Interfejs (ruch sieciowy) na
   Dashboardzie dla kont z ograniczonym dostepem. Przyczyna: te widgety aktualizuja sie na
   zywo przez kanaly push Nchan (sciezki /sub/...), ktore nie naleza do zadnej chronionej

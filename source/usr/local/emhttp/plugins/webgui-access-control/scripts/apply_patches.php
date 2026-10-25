@@ -143,6 +143,29 @@ if (!empty($_SESSION['wac_role']) && $_SESSION['wac_role'] !== 'admin') {
     hideTileIcons();
     new MutationObserver(hideTileIcons).observe(document.body, { childList: true, subtree: true });
 
+    // Strona "Glowna" (/Main): ukryj WSZYSTKIE operacje na macierzy (Zatrzymaj, Sprawdz,
+    // Wybudzenie/Usypianie dysku, Przenies, Uruchom ponownie, Wylaczenie) - to bezposrednie
+    // akcje systemowe, nie dane. Zostaw tylko informacje o ostatnio wykonanym sprawdzeniu
+    // (data, czas trwania, liczba bledow) - w tym samym wierszu co przycisk "Historia",
+    // wiec ukrywamy tylko sam przycisk w tym jednym wierszu, caly wiersz zostaje widoczny.
+    function hideArrayOperations() {
+      if (location.pathname.indexOf('/Main') !== 0) { return; }
+      document.querySelectorAll('table.ArrayOperation-Table').forEach(function (tbl) {
+        tbl.querySelectorAll('tr').forEach(function (tr) {
+          var hasCheckInfo = tr.textContent.indexOf('Ostatnie sprawdzenie') !== -1;
+          var controls = tr.querySelectorAll('input, button, select');
+          if (!controls.length) { return; }
+          if (hasCheckInfo) {
+            controls.forEach(function (c) { c.style.display = 'none'; });
+          } else {
+            tr.style.display = 'none';
+          }
+        });
+      });
+    }
+    hideArrayOperations();
+    new MutationObserver(hideArrayOperations).observe(document.body, { childList: true, subtree: true });
+
     // --- Docker / VM: granularne pod-uprawnienia (dodawanie / edycja / start-stop) ---
     var path = location.pathname;
     var onDocker = path.indexOf('/Docker') === 0;
